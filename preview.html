@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Groq AI Chat UI</title>
+
+<style>
+    body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+        background: #0f172a;
+        color: #e2e8f0;
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+    }
+
+    header {
+        padding: 15px;
+        background: #111827;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px solid #1f2937;
+    }
+
+    header h1 {
+        font-size: 16px;
+        margin: 0;
+    }
+
+    .buttons button {
+        margin-left: 10px;
+        padding: 6px 10px;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        background: #2563eb;
+        color: white;
+        font-size: 12px;
+    }
+
+    .buttons button:hover {
+        background: #1d4ed8;
+    }
+
+    #chat {
+        flex: 1;
+        padding: 15px;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .msg {
+        max-width: 70%;
+        padding: 10px 12px;
+        border-radius: 12px;
+        line-height: 1.4;
+        white-space: pre-wrap;
+    }
+
+    .user {
+        align-self: flex-end;
+        background: #2563eb;
+        color: white;
+    }
+
+    .bot {
+        align-self: flex-start;
+        background: #1f2937;
+    }
+
+    .input-area {
+        display: flex;
+        padding: 10px;
+        border-top: 1px solid #1f2937;
+        background: #111827;
+    }
+
+    input {
+        flex: 1;
+        padding: 10px;
+        border: none;
+        border-radius: 8px;
+        outline: none;
+        background: #1f2937;
+        color: white;
+    }
+
+    button.send {
+        margin-left: 10px;
+        padding: 10px 15px;
+        border: none;
+        border-radius: 8px;
+        background: #22c55e;
+        color: white;
+        cursor: pointer;
+    }
+
+    button.send:hover {
+        background: #16a34a;
+    }
+
+    .typing {
+        font-style: italic;
+        opacity: 0.7;
+    }
+</style>
+</head>
+
+<body>
+
+<header>
+    <h1>🚀 Groq AI Chat</h1>
+    <div class="buttons">
+        <button onclick="ping()">Ping</button>
+        <button onclick="clearChat()">Clear</button>
+    </div>
+</header>
+
+<div id="chat"></div>
+
+<div class="input-area">
+    <input id="input" placeholder="Type your message..." onkeydown="handleKey(event)" />
+    <button class="send" onclick="sendMessage()">Send</button>
+</div>
+
+<script>
+const API_BASE = "http://localhost:8080/api/v1/chat";
+
+const chat = document.getElementById("chat");
+const input = document.getElementById("input");
+
+function addMessage(text, type) {
+    const div = document.createElement("div");
+    div.className = "msg " + type;
+    div.innerText = text;
+    chat.appendChild(div);
+    chat.scrollTop = chat.scrollHeight;
+}
+
+function setTyping(show) {
+    let existing = document.getElementById("typing");
+    if (show) {
+        if (!existing) {
+            const div = document.createElement("div");
+            div.id = "typing";
+            div.className = "msg bot typing";
+            div.innerText = "AI is typing...";
+            chat.appendChild(div);
+        }
+    } else {
+        if (existing) existing.remove();
+    }
+    chat.scrollTop = chat.scrollHeight;
+}
+
+async function sendMessage() {
+    const message = input.value.trim();
+    if (!message) return;
+
+    addMessage(message, "user");
+    input.value = "";
+
+    setTyping(true);
+
+    try {
+        const res = await fetch(`${API_BASE}/completions`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ message })
+        });
+
+        const data = await res.json();
+
+        setTyping(false);
+
+        // adjust based on your backend response
+        const reply =
+            data?.message ||
+            data?.choices?.[0]?.message?.content ||
+            JSON.stringify(data);
+
+        addMessage(reply, "bot");
+
+    } catch (err) {
+        setTyping(false);
+        addMessage("Error: Unable to reach server", "bot");
+    }
+}
+
+async function ping() {
+    try {
+        const res = await fetch(`${API_BASE}/ping`);
+        const data = await res.json();
+
+        const reply =
+            data?.message ||
+            data?.choices?.[0]?.message?.content ||
+            JSON.stringify(data);
+
+        addMessage("PING → " + reply, "bot");
+    } catch (err) {
+        addMessage("Ping failed", "bot");
+    }
+}
+
+function clearChat() {
+    chat.innerHTML = "";
+}
+
+function handleKey(e) {
+    if (e.key === "Enter") sendMessage();
+}
+</script>
+
+</body>
+</html>

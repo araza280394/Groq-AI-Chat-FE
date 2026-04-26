@@ -1,12 +1,12 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Groq AI Chat UI</title>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Groq AI Chat UI</title>
 
-<style>
-    body {
+    <style>
+      body {
         margin: 0;
         font-family: Arial, sans-serif;
         background: #0f172a;
@@ -14,23 +14,23 @@
         display: flex;
         flex-direction: column;
         height: 100vh;
-    }
+      }
 
-    header {
+      header {
         padding: 15px;
         background: #111827;
         display: flex;
         justify-content: space-between;
         align-items: center;
         border-bottom: 1px solid #1f2937;
-    }
+      }
 
-    header h1 {
+      header h1 {
         font-size: 16px;
         margin: 0;
-    }
+      }
 
-    .buttons button {
+      .buttons button {
         margin-left: 10px;
         padding: 6px 10px;
         border: none;
@@ -39,48 +39,48 @@
         background: #2563eb;
         color: white;
         font-size: 12px;
-    }
+      }
 
-    .buttons button:hover {
+      .buttons button:hover {
         background: #1d4ed8;
-    }
+      }
 
-    #chat {
+      #chat {
         flex: 1;
         padding: 15px;
         overflow-y: auto;
         display: flex;
         flex-direction: column;
         gap: 10px;
-    }
+      }
 
-    .msg {
+      .msg {
         max-width: 70%;
         padding: 10px 12px;
         border-radius: 12px;
         line-height: 1.4;
         white-space: pre-wrap;
-    }
+      }
 
-    .user {
+      .user {
         align-self: flex-end;
         background: #2563eb;
         color: white;
-    }
+      }
 
-    .bot {
+      .bot {
         align-self: flex-start;
         background: #1f2937;
-    }
+      }
 
-    .input-area {
+      .input-area {
         display: flex;
         padding: 10px;
         border-top: 1px solid #1f2937;
         background: #111827;
-    }
+      }
 
-    input {
+      input {
         flex: 1;
         padding: 10px;
         border: none;
@@ -88,9 +88,9 @@
         outline: none;
         background: #1f2937;
         color: white;
-    }
+      }
 
-    button.send {
+      button.send {
         margin-left: 10px;
         padding: 10px 15px;
         border: none;
@@ -98,124 +98,125 @@
         background: #22c55e;
         color: white;
         cursor: pointer;
-    }
+      }
 
-    button.send:hover {
+      button.send:hover {
         background: #16a34a;
-    }
+      }
 
-    .typing {
+      .typing {
         font-style: italic;
         opacity: 0.7;
-    }
-</style>
-</head>
+      }
+    </style>
+  </head>
 
-<body>
-
-<header>
-    <h1>🚀 Groq AI Chat</h1>
-    <div class="buttons">
+  <body>
+    <header>
+      <h1>🚀 Groq AI Chat</h1>
+      <div class="buttons">
         <button onclick="ping()">Ping</button>
         <button onclick="clearChat()">Clear</button>
+      </div>
+    </header>
+
+    <div id="chat"></div>
+
+    <div class="input-area">
+      <input
+        id="input"
+        placeholder="Type your message..."
+        onkeydown="handleKey(event)"
+      />
+      <button class="send" onclick="sendMessage()">Send</button>
     </div>
-</header>
 
-<div id="chat"></div>
+    <script>
+      const LOCAL_API_BASE = "http://localhost:8080/api/v1/chat";
+      const API_BASE = "https://groq-ai-chat.onrender.com/api/v1/chat";
+      const chat = document.getElementById("chat");
+      const input = document.getElementById("input");
 
-<div class="input-area">
-    <input id="input" placeholder="Type your message..." onkeydown="handleKey(event)" />
-    <button class="send" onclick="sendMessage()">Send</button>
-</div>
+      function addMessage(text, type) {
+        const div = document.createElement("div");
+        div.className = "msg " + type;
+        div.innerText = text;
+        chat.appendChild(div);
+        chat.scrollTop = chat.scrollHeight;
+      }
 
-<script>
-const API_BASE = "http://localhost:8080/api/v1/chat";
-
-const chat = document.getElementById("chat");
-const input = document.getElementById("input");
-
-function addMessage(text, type) {
-    const div = document.createElement("div");
-    div.className = "msg " + type;
-    div.innerText = text;
-    chat.appendChild(div);
-    chat.scrollTop = chat.scrollHeight;
-}
-
-function setTyping(show) {
-    let existing = document.getElementById("typing");
-    if (show) {
-        if (!existing) {
+      function setTyping(show) {
+        let existing = document.getElementById("typing");
+        if (show) {
+          if (!existing) {
             const div = document.createElement("div");
             div.id = "typing";
             div.className = "msg bot typing";
             div.innerText = "AI is typing...";
             chat.appendChild(div);
+          }
+        } else {
+          if (existing) existing.remove();
         }
-    } else {
-        if (existing) existing.remove();
-    }
-    chat.scrollTop = chat.scrollHeight;
-}
+        chat.scrollTop = chat.scrollHeight;
+      }
 
-async function sendMessage() {
-    const message = input.value.trim();
-    if (!message) return;
+      async function sendMessage() {
+        const message = input.value.trim();
+        if (!message) return;
 
-    addMessage(message, "user");
-    input.value = "";
+        addMessage(message, "user");
+        input.value = "";
 
-    setTyping(true);
+        setTyping(true);
 
-    try {
-        const res = await fetch(`${API_BASE}/completions`, {
+        try {
+          const res = await fetch(`${API_BASE}/completions`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ message })
-        });
+            body: JSON.stringify({ message }),
+          });
 
-        const data = await res.json();
+          const data = await res.json();
 
-        setTyping(false);
+          setTyping(false);
 
-        // adjust based on your backend response
-        const reply =
+          // adjust based on your backend response
+          const reply =
             data?.message ||
             data?.choices?.[0]?.message?.content ||
             JSON.stringify(data);
 
-        addMessage(reply, "bot");
+          addMessage(reply, "bot");
+        } catch (err) {
+          setTyping(false);
+          addMessage("Error: Unable to reach server", "bot");
+        }
+      }
 
-    } catch (err) {
-        setTyping(false);
-        addMessage("Error: Unable to reach server", "bot");
-    }
-}
+      async function ping() {
+        try {
+          const res = await fetch(`${API_BASE}/ping`);
+          const data = await res.json();
 
-async function ping() {
-    try {
-        const res = await fetch(`${API_BASE}/ping`);
-        const data = await res.json();
-
-        const reply =
+          const reply =
             data?.message ||
             data?.choices?.[0]?.message?.content ||
             JSON.stringify(data);
 
-        addMessage("PING → " + reply, "bot");
-    } catch (err) {
-        addMessage("Ping failed", "bot");
-    }
-}
+          addMessage("PING → " + reply, "bot");
+        } catch (err) {
+          addMessage("Ping failed", "bot");
+        }
+      }
 
-function clearChat() {
-    chat.innerHTML = "";
-}
+      function clearChat() {
+        chat.innerHTML = "";
+      }
 
-function handleKey(e) {
-    if (e.key === "Enter") sendMessage();
-}
-</script>
-
-</body>
+      function handleKey(e) {
+        if (e.key === "Enter") sendMessage();
+      }
+    </script>
+  </body>
 </html>

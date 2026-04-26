@@ -25,11 +25,6 @@
         border-bottom: 1px solid #1f2937;
       }
 
-      header h1 {
-        font-size: 16px;
-        margin: 0;
-      }
-
       .buttons button {
         margin-left: 10px;
         padding: 6px 10px;
@@ -39,10 +34,6 @@
         background: #2563eb;
         color: white;
         font-size: 12px;
-      }
-
-      .buttons button:hover {
-        background: #1d4ed8;
       }
 
       #chat {
@@ -73,6 +64,13 @@
         background: #1f2937;
       }
 
+      .system {
+        align-self: center;
+        background: #7c2d12;
+        color: #fef3c7;
+        font-size: 12px;
+      }
+
       .input-area {
         display: flex;
         padding: 10px;
@@ -100,8 +98,9 @@
         cursor: pointer;
       }
 
-      button.send:hover {
-        background: #16a34a;
+      button.send:disabled {
+        background: #374151;
+        cursor: not-allowed;
       }
 
       .typing {
@@ -128,14 +127,35 @@
         placeholder="Type your message..."
         onkeydown="handleKey(event)"
       />
-      <button class="send" onclick="sendMessage()">Send</button>
+      <button id="sendBtn" class="send" onclick="sendMessage()">Send</button>
     </div>
 
     <script>
-      const LOCAL_API_BASE = "http://localhost:8080/api/v1/chat";
       const API_BASE = "https://groq-ai-chat.onrender.com/api/v1/chat";
+
       const chat = document.getElementById("chat");
       const input = document.getElementById("input");
+      const sendBtn = document.getElementById("sendBtn");
+
+      // 🔥 CONFIG
+      const COOLDOWN = 3000; // 3 sec
+      const MAX_PER_MINUTE = 8;
+
+      let lastRequestTime = 0;
+      let requests = [];
+      let isSending = false;
+
+      const funkyMessages = [
+        "Whoa there, speedster 🚀 chill a bit!",
+        "Too fast! Even AI needs coffee ☕",
+        "Spam detected 😏 take a breath!",
+        "Easy tiger 🐅 give it a second...",
+        "You're typing like a hacker 😂 slow down!",
+      ];
+
+      function randomMsg() {
+        return funkyMessages[Math.floor(Math.random() * funkyMessages.length)];
+      }
 
       function addMessage(text, type) {
         const div = document.createElement("div");
@@ -147,26 +167,65 @@
 
       function setTyping(show) {
         let existing = document.getElementById("typing");
+
         if (show) {
           if (!existing) {
             const div = document.createElement("div");
             div.id = "typing";
             div.className = "msg bot typing";
-            div.innerText = "AI is typing...";
+            div.innerText = "🤖 AI is thinking...";
             chat.appendChild(div);
           }
         } else {
           if (existing) existing.remove();
         }
+
         chat.scrollTop = chat.scrollHeight;
       }
 
+      function canSend() {
+        const now = Date.now();
+
+        // cooldown check
+        if (now - lastRequestTime < COOLDOWN) {
+          const wait = ((COOLDOWN - (now - lastRequestTime)) / 1000).toFixed(1);
+          addMessage(`⏳ Wait ${wait}s... ${randomMsg()}`, "system");
+          return false;
+        }
+
+        // per-minute limit
+        requests = requests.filter((t) => now - t < 60000);
+
+        if (requests.length >= MAX_PER_MINUTE) {
+          addMessage("🚫 Too many messages! Try again in a minute.", "system");
+          return false;
+        }
+
+        requests.push(now);
+        lastRequestTime = now;
+        return true;
+      }
+
       async function sendMessage() {
+        if (isSending) {
+          addMessage(
+            "🤖 Hey! I'm still working on your last request 😅",
+            "system",
+          );
+          return;
+        }
+
+        if (!canSend()) return;
+
         const message = input.value.trim();
         if (!message) return;
 
         addMessage(message, "user");
         input.value = "";
+
+        isSending = true;
+        input.disabled = true;
+        sendBtn.disabled = true;
 
         setTyping(true);
 
@@ -179,18 +238,20 @@
 
           const data = await res.json();
 
-          setTyping(false);
-
-          // adjust based on your backend response
           const reply =
             data?.message ||
             data?.choices?.[0]?.message?.content ||
             JSON.stringify(data);
 
+          setTyping(false);
           addMessage(reply, "bot");
         } catch (err) {
           setTyping(false);
-          addMessage("Error: Unable to reach server", "bot");
+          addMessage("💥 Server ghosted us... try again!", "system");
+        } finally {
+          isSending = false;
+          input.disabled = false;
+          sendBtn.disabled = false;
         }
       }
 
@@ -199,19 +260,17 @@
           const res = await fetch(`${API_BASE}/ping`);
           const data = await res.json();
 
-          const reply =
-            data?.message ||
-            data?.choices?.[0]?.message?.content ||
-            JSON.stringify(data);
+          const reply = data?.message || JSON.stringify(data);
 
-          addMessage("PING → " + reply, "bot");
+          addMessage("🏓 PING → " + reply, "bot");
         } catch (err) {
-          addMessage("Ping failed", "bot");
+          addMessage("❌ Ping failed", "system");
         }
       }
 
       function clearChat() {
         chat.innerHTML = "";
+        requests = [];
       }
 
       function handleKey(e) {
